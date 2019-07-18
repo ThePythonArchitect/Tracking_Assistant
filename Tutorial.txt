@@ -1,0 +1,12 @@
+1) Select the "Download Data" button (make sure you're signed into Google)
+
+2) File --> use "Open Archive file" to select the file downloaded from Google
+
+3) Ensure that you have the addresses set under "Custom Locations" formatted as "Name: Address" (without qutoes)
+
+4)
+Select either "Calculate Timeline" to see Arrival and Depature times for each location
+
+OR
+
+Select "Generate Expense Report" to create a report that shows the miles driven for each day for each location (note miles won't be exact due to the difference between absolute distance and the curves in the roads)
