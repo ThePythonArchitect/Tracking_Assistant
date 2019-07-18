@@ -23,3 +23,5 @@ Authors:
 Zach Bohn (sole developer)
 
 License:
+
+GNU
