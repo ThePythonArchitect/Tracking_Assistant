@@ -17,6 +17,10 @@ What I learned from writing this:
   
   • Design patterns (this program uses a micro services design pattern)
 
+
+
+HOW IT WORKS
+
 Prerequisites:
 Windows 7 or higher (x64)
 Python 3.6.5 or higher
