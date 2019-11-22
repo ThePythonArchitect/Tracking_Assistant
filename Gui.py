@@ -4,8 +4,10 @@ from tkinter.scrolledtext import ScrolledText as Scrollbox
 from tkinter.filedialog import askopenfilename as openfile
 import webbrowser
 import os
+from threading import Thread
 import subprocess
 
+import pickle
 
 
 class Gui:
@@ -39,6 +41,10 @@ class Gui:
         self.titles = []
         self.widgets = []
 
+        self.time_window = 1
+
+        self.thread_lock = False
+
         self.archive_file = None
         self.json_file = None
         self.locations = []
@@ -65,6 +71,13 @@ class Gui:
         self.file_options = tk.Menu(
             self.menubar,
             tearoff=False
+            )
+
+        #add option to select months to calculate
+
+        self.file_options.add_command(
+            label="Months to Report",
+            command=self.set_months,
             )
 
         #add option to select a zip file
@@ -331,6 +344,7 @@ class Gui:
             rely = 0.92
             )
 
+        
         self.calculate_button.place(
             relheight = 0.07,
             relwidth = 0.29,
@@ -338,19 +352,23 @@ class Gui:
             rely = 0.92
             )
 
+        """
+        #removed because functionality hasn't been completed.
         self.expense_button.place(
             relheight = 0.07,
             relwidth = 0.29,
             relx = 0.68,
             rely = 0.92
             )
+        """
 
         #add frames to self.frames
 
         self.frames.append(self.l_frame)
         self.frames.append(self.r_frame)
 
-        #add widgets to self.widgets
+        #add all the widgets we created to self.widgets
+        #so we can reference all of them simultaneously later
 
         self.titles.append(self.l_title)
         self.titles.append(self.r_title)
@@ -445,19 +463,23 @@ class Gui:
 
     def get_locations(self):
 
+        if self.thread_lock: return
+
         if self.debug: print("retrieving locations from left scrollbox")
 
-        #used to get the custom locations from the 
+        #this is used to get the custom locations from the 
         #scrollbox on the left frame
 
         return self.l_scrollbox.get(1.0, tk.END)
 
     def set_locations(self):
 
+        if self.thread_lock: return
+
         if self.debug: print("reading locations from txt file and printing")
 
         self.custom_locations = self.reader.read_txt()
-        #clear the contents of the left scrollbox
+        
         self.clear_lscrollbox()
 
         lines = []
@@ -468,6 +490,8 @@ class Gui:
         return
 
     def click_save_button(self):
+
+        if self.thread_lock: return
 
         if self.debug: print("saving custom locations")
 
@@ -500,6 +524,8 @@ class Gui:
 
     def open_archive(self):
 
+        if self.thread_lock: return
+
         if self.debug: print("opening zip file")
 
         #only works on windows
@@ -521,12 +547,16 @@ class Gui:
 
     def open_json(self):
 
+        if self.thread_lock: return
+
         if self.debug: print("opening json file")
 
         self.update_rscrollbox("Reading json file...")
 
-        #only works on windows
+        #only works on windows; get the file path from
+        #the user via windows file prompt
         user_folder = os.environ.get("USERPROFILE")
+
         if user_folder != None:
             downloads_folder = user_folder + "/Downloads"
         else:
@@ -538,7 +568,10 @@ class Gui:
             title="Choose a Google Takeout File"
             )
 
-        self.json_file = filename
+        if self.debug: print(f"file found: {user_folder}")
+
+        if filename != None:
+            self.json_file = filename
 
         return
 
@@ -577,7 +610,7 @@ class Gui:
             self.light_theme()
         elif theme == "dark theme":
             self.dark_theme()
-        elif theme =="forest theme":
+        elif theme =="custom theme":
             self.custom_theme()
         else:
             self.light_theme()
@@ -606,7 +639,7 @@ class Gui:
 
         return custom_colors
 
-    def click_calculate_button(self):
+    def call_calculate_button(self):
 
         if self.debug: print("calculating timeline")
 
@@ -618,6 +651,9 @@ class Gui:
         #then force the user to choose one.  Returns
         #"break" if no custom locations are set
         return_value = self.verify_parameters()
+
+        if self.debug: print(f"return value in calc button: {return_value}")
+
         if return_value == "break custom":
             self.update_rscrollbox("No custom locations set")
             self.update_rscrollbox("Please enter custom locations")
@@ -627,45 +663,96 @@ class Gui:
             self.update_rscrollbox("Please select a json file downloaded from Google Takeout")
             return
 
-        self.update_rscrollbox("Converting addresses to digital")
-        self.custom_locations = self.addr_translator.convert(self.custom_locations)
-        if self.debug: print(f"custom locations: {len(self.custom_locations)}")
-        self.locations = self.reader.read_json(self.json_file)
-        if self.debug: print(f"json file entries: {len(self.locations)}")
-        self.cleaner.set_time_window()
-        self.update_rscrollbox("Trimming data")
-        self.locations = self.cleaner.trim_data(self.locations, self.custom_locations)
-        if self.debug: print(f"trimmed data: {len(self.locations)}")
-        self.update_rscrollbox("Cleaning data")
-        self.locations = self.cleaner.clean_data(self.locations)
-        if self.debug: print(f"cleaned data: {len(self.locations)}")
-        self.update_rscrollbox("Removing false positives")
-        self.locations = self.cleaner.clean_data_min(self.locations)
-        if self.debug: print(f"data removed false positives: {len(self.locations)}")
-        self.update_rscrollbox("Translating time stamps to human readable")
-        self.locations = self.time_translator.translate(self.locations)
-        if self.debug: print(f"data time translated: {len(self.locations)}")
-        
-
-        if len(self.locations) == 0:
-            self.update_rscrollbox("No entries found within the given time window")
+        elif return_value == "no connection":
+            self.update_rscrollbox("No internet connection detected.")
+            self.update_rscrollbox("Please connect to the internet and try again.")
             return
-        else:
-            self.update_rscrollbox("Done.  Displaying results\n")
 
-        #display the results
-        for x in self.locations:
+        try:
 
-            self.update_rscrollbox(str(x.name))
-            self.update_rscrollbox("Arrival Time: " + str(x.arr_time))
-            self.update_rscrollbox("Departure Time: " + str(x.dep_time))
-            self.update_rscrollbox()
+            self.update_rscrollbox("Loading json file from disk.  This may take a few minutes...")
+            self.custom_locations = self.addr_translator.convert(self.custom_locations)
+            if self.debug: print(f"custom locations: {len(self.custom_locations)}")
+            self.locations = self.reader.read_json(self.json_file)
+            if self.debug: print(f"json file entries: {len(self.locations)}")
+            self.cleaner.set_time_window(given_months=self.time_window)
+            self.update_rscrollbox("Trimming data")
+            self.locations = self.cleaner.trim_data(self.locations, self.custom_locations)
+            if self.debug: print(f"trimmed data: {len(self.locations)}")
+            self.update_rscrollbox("Cleaning data")
+            self.locations = self.cleaner.clean_data(self.locations)
+            if self.debug: print(f"cleaned data: {len(self.locations)}")
+            self.update_rscrollbox("Removing false positives")
+            self.locations = self.cleaner.clean_data_min(self.locations)
+            if self.debug: print(f"data removed false positives: {len(self.locations)}")
+            self.update_rscrollbox("Translating time stamps to human readable")
+            try:
+                self.locations = self.time_translator.translate(self.locations)
+            except Exception as e:
+                print(e)
+                self.update_rscrollbox("Failed to connect to the internet...")
+                return
+            if self.debug: print(f"data time translated: {len(self.locations)}")
+            
+
+            if len(self.locations) == 0:
+                self.update_rscrollbox("No entries found within the given time window")
+                self.thread_lock = False
+                return
+            else:
+                self.update_rscrollbox("Done.  Displaying results\n")
+
+            #display the results
+            for x in self.locations:
+
+                self.update_rscrollbox(str(x.name))
+                self.update_rscrollbox("Arrival Time: " + str(x.arr_time))
+                self.update_rscrollbox("Departure Time: " + str(x.dep_time))
+                self.update_rscrollbox()
+
+        except Exception as e:
+            #in case there is an error, release the thread lock
+            print(e)
+            self.thread_lock = False
+            return
+
+        with open("debug_self.locations.pickle", "wb") as f:
+            pickle.dump(self.locations, f)
+
+        self.thread_lock = False
+
+        return
+
+    def click_calculate_button(self):
+
+        self.thread_lock = True
+
+        subthread = Thread(target=self.call_calculate_button)
+        subthread.start()
+
+        self.thread_lock = False
 
         return
 
     def click_expense_button(self):
 
+        if self.thread_lock: return
+
         if self.debug: print("calculating expense report")
+
+        #check internet connection
+
+        #! Delete this !
+        with open("debug_self.locations.pickle", "rb") as f:
+            self.locations = pickle.load(f)
+
+        #calculate expense report
+        expense_report = self.ex_report.generate(self.locations)
+
+        #write expense report to the right scrollbox
+        for x in expense_report:
+            print(x)
+            self.update_rscrollbox(x)
 
         return
 
@@ -728,6 +815,11 @@ class Gui:
         if len(self.custom_locations) == 0:
             return "break custom"
 
+        if subprocess.call("ping -n 2 google.com") == 1:
+            #no internet connection
+            return "no connection"
+
+
         if self.json_file == None:
             if self.debug: print("no json file")
             if self.archive_file == None:
@@ -738,6 +830,55 @@ class Gui:
             else:
                 if self.debug: print("extracting archive")
                 self.json_file = self.reader.extract_archive(self.archive_file)
+
+        
+
+
+        return
+
+    def set_months(self):
+        #creates a pop up window to get a number
+        #from the user
+
+        class pop_up:
+
+            def __init__(self, parent):
+
+                self.parent = parent
+
+                self.message = ("Please enter the amount of months " +
+                    "to report on.")
+                self.pop_up = tk.Toplevel(self.parent.app)
+                self.pop_up.geometry("325x100")
+                self.pop_up.title("Set Months")
+                self.pop_up.resizable(False, False)
+                self.display_text = tk.Label(
+                    self.pop_up,
+                    text=self.message
+                    )
+
+                self.text_box = tk.Entry(self.pop_up)
+
+                self.submit_button = tk.Button(
+                    self.pop_up,
+                    text="Submit",
+                    command=self.get_text,
+                    )
+
+                self.display_text.pack()
+                self.text_box.pack()
+                self.submit_button.pack()
+
+            def get_text(self):
+                self.parent.time_window = int(self.text_box.get())
+                self.pop_up.destroy()
+                return
+
+        self.sub_window = pop_up(self)
+
+        return
+
+    def pop_up(self):
 
         return
 
@@ -763,4 +904,4 @@ class Gui:
 
 
 if __name__ == "__main__":
-    Gui(debug=False).run()
+    Gui(debug=True).run()

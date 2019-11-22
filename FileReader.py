@@ -8,7 +8,20 @@ import json
 import os
 from zipfile import ZipFile
 
+#create a class to store our name and address in
+class Entry:
+    def __init__(self, name, address):
+        self.name = name
+        self.address = address
+        return
 
+#create a class to store our data
+class Entry_Time:
+    def __init__(self, time, latitude, longitude):
+        self.time = time // 1000
+        self.latitude = latitude
+        self.longitude = longitude
+        return
 
 class FileReader:
 
@@ -69,16 +82,8 @@ class FileReader:
         if lines == None or lines == []:
             assert 1 == 2, "Failed reading from Locations.txt"
 
-        #create a class to store our name and address in
-        class Entry:
-            def __init__(self, name, address):
-                self.name = name
-                self.address = address
-                return
-
         for line in lines:
             if line == "" or line == "\n":
-                if self.debug: print(f"Line skipped: {line}")
                 continue #skip blank lines
             try:
                 #client_name equals everything before the first colon
@@ -95,6 +100,7 @@ class FileReader:
         return custom_locations
 
     def read_json(self, json_file):
+        
         if self.debug: print("Reading data from json file")
         #reads the "History Location.json" file, then returns it
 
@@ -111,14 +117,6 @@ class FileReader:
         #create a list to store our data
         history_locations = []
 
-        #create a class to store our data
-        class Entry:
-            def __init__(self, time, latitude, longitude):
-                self.time = time // 1000
-                self.latitude = latitude
-                self.longitude = longitude
-                return
-
         #loop through all the json_data and strip everything except
         #the "timestamp", "latutideE7", and "longitudeE7"
         for dictionary in json_data:
@@ -128,7 +126,7 @@ class FileReader:
             latitude = int(dictionary['latitudeE7']) / 10000000
             longitude = int(dictionary['longitudeE7']) / 10000000
             #create our object
-            entry = Entry(
+            entry = Entry_Time(
                 time=time,
                 latitude=latitude,
                 longitude=longitude

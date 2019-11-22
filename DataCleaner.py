@@ -78,19 +78,21 @@ class DataCleaner:
         #than self.time or that are not within any
         #custom locations' geo fences
 
-        if self.debug: print("Trimming dataset")
+        self.debug: print("Trimming dataset")
 
         #where we will store our dataset once
         #it has been fully trimmed
         trimmed_dataset = []
 
+        #do only 1 unknown is appended between locations
+        unknown_appended = False
+
         #keep track of last entry
-        last_entry = None
+        last_entry = dataset[0]
+        last_entry.name = "First"
 
         #loop through our data set
         for entry in dataset:
-
-            last_entry = entry
 
             #if our entry's time stamp too old
             #then skip it
@@ -102,12 +104,41 @@ class DataCleaner:
                 if self.in_geofence(entry, location):
                     #add our location name to our entry
                     entry.name = location.name
+
                     #then append it to our trimmed_dataset
                     trimmed_dataset.append(entry)
+                    unknown_appended = False
+                    break
+            else:
+                #entry is not in any of the defined locations
+                #so append 1 "unknown"
 
-                elif trimmed_dataset[-1].name != "Unknown":
-                    entry.name = "Unknown"
-                    trimmed_dataset.append(entry)
+                #skip this though if the unknown is less than
+                #five minutes from previous entry, cuz it's white
+                #noies
+                if entry.time >= (last_entry.time + 600):
+
+                    if not unknown_appended:
+                        entry.name = "Unknown"
+                        trimmed_dataset.append(entry)
+                        unknown_appended = True
+                        if self.debug: print(f"uknown appended")
+
+            #keep track of the last entry
+            last_entry = entry
+
+
+        #DELETE THIS
+        if 1:
+            print("Attempting to write to trimmed_data.txt")
+            from TimeTranslator import TimeTranslator
+            translator = TimeTranslator(debug=False)
+            with open("trimmed_data.txt", "w") as file:
+                for x in trimmed_dataset:
+                    text = str(x.name) + " " + str(translator.convert(x.time)) + " | " + str(x.time) + "\n"
+                    file.write(text)
+            print("just wrote to trimmed_data.txt")
+        #DELETE THIS
 
         return trimmed_dataset
 
@@ -116,7 +147,7 @@ class DataCleaner:
         #in our dataset for each custom location
 
         if self.debug:
-            print("Cleaning dataset")
+            print(f"Cleaning dataset: {len(dataset)}")
 
         #verify that the dataset has at least 1 entry
         if len(dataset) == 0:
@@ -166,13 +197,16 @@ class DataCleaner:
             #finish the last entry
             arrival_entry.arr_time = arrival_entry.time
             arrival_entry.dep_time = last_entry.time
-            cleaned_dataset.append(arrival_entry)
+            if arrival_entry.name != "Unknown":
+                cleaned_dataset.append(arrival_entry)
 
         return cleaned_dataset
 
     def clean_data_min(self, dataset):
         #remove all entry sets that span under
         #our self.min_minutes
+
+        start_length = len(dataset)
 
         if self.debug: print(
             "Removing false positive entries from dataset"
@@ -182,11 +216,6 @@ class DataCleaner:
 
         for entry in dataset:
 
-            if self.debug:
-                print(f"\nminimum cleaning entry: {entry.name}")
-                print(f"arrival time: {entry.arr_time}")
-                print(f"depature time: {entry.dep_time}")
-
             difference = entry.dep_time - entry.arr_time
 
             if difference < self.min_minutes:
@@ -195,5 +224,8 @@ class DataCleaner:
                 continue
             else:
                 cleaned_dataset.append(entry)
+
+        if self.debug:
+            print(f"{start_length - len(cleaned_dataset)} entries removed of {start_length} entries.")
 
         return cleaned_dataset
