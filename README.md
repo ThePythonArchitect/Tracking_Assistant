@@ -17,7 +17,9 @@ Work: Address 123, NY 10031
 Example Output:
 
 Work
+
 Arrival Time: Jul 01 2019, 7:30 am
+
 Departure Time: Jul 01 2019, 12:30 pm
 
 
