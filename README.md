@@ -3,19 +3,19 @@ Tracking assist is used to create a report from your google maps timeline.  It t
 
 What I learned from writing this:
   
-  • Version Management
+    • Version Management
   
-  • How to maintain a larger database of code (1000+ lines across multiple files / directories)
+    • How to maintain a larger database of code (1000+ lines across multiple files / directories)
   
-  • How to write easily readible code (although I'll always trying to be improving this)
+    • How to write easily readible code (although I'll always trying to be improving this)
   
-  • How to create / troubleshoot creating a GUI through tkinter
+    • How to create / troubleshoot creating a GUI through tkinter
   
-  • Troubleshooting bugs that span across several files or bugs that are with how your code communicates with the OS
+    • Troubleshooting bugs that span across several files or bugs that are with how your code communicates with the OS
   
-  • The application of loose coupling / high cohesion
+    • The application of loose coupling / high cohesion
   
-  • Design patterns (this program uses a micro services design pattern)
+    • Design patterns (this program uses a micro services design pattern)
 
 
 
